@@ -1,122 +1,92 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-const scale = 20;
-const rows = canvas.height / scale;
-const columns = canvas.width / scale;
+// Размер на блокчето (от което се състои змията и храната)
+const blockSize = 20;
+const width = canvas.width / blockSize;
+const height = canvas.height / blockSize;
 
-let snake;
-let food;
-let score;
+let snake = [{x: 5, y: 5}]; // Начална позиция на змията
+let direction = 'right'; // Начална посока
+let food = generateFood(); // Генериране на храна
+let gameOver = false;
 
-(function setup() {
-    snake = new Snake();
-    food = new Food();
-    score = 0;
-    window.setInterval(gameLoop, 100);
-})();
+// Движение на змията
+function moveSnake() {
+    if (gameOver) return;
 
-function gameLoop() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    snake.move();
-    snake.draw();
-    food.draw();
+    const head = { ...snake[0] };
 
-    if (snake.eat(food)) {
-        food = new Food();
-        score++;
-        document.title = "Змия - Скоор: " + score;
+    if (direction === 'up') head.y--;
+    if (direction === 'down') head.y++;
+    if (direction === 'left') head.x--;
+    if (direction === 'right') head.x++;
+
+    // Проверка дали змията е излязла извън екрана или се е ударила в себе си
+    if (head.x < 0 || head.x >= width || head.y < 0 || head.y >= height || isSnake(head)) {
+        gameOver = true;
+        alert("Играта приключи! Ти изгуби!");
+        return;
     }
 
-    if (snake.checkCollision()) {
-        alert("Играта приключи! Скоор: " + score);
-        snake = new Snake();
-        score = 0;
-        document.title = "Змия - Скоор: " + score;
+    snake.unshift(head); // Добавяме новата глава на змията в началото
+    if (head.x === food.x && head.y === food.y) {
+        food = generateFood(); // Генерираме нова храна
+    } else {
+        snake.pop(); // Премахваме последния елемент (тяло на змията)
     }
 }
 
-window.addEventListener('keydown', e => {
-    const direction = e.key.replace('Arrow', '');
-    snake.changeDirection(direction);
+// Проверка дали змията е на дадена позиция
+function isSnake(position) {
+    return snake.some(segment => segment.x === position.x && segment.y === position.y);
+}
+
+// Генериране на храна на случайна позиция
+function generateFood() {
+    let foodPosition;
+    do {
+        foodPosition = {
+            x: Math.floor(Math.random() * width),
+            y: Math.floor(Math.random() * height)
+        };
+    } while (isSnake(foodPosition)); // Проверяваме дали храната не е на място, където е змията
+
+    return foodPosition;
+}
+
+// Рисуване на играта
+function drawGame() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height); // Изчистваме канваса
+
+    // Рисуваме змията
+    snake.forEach((segment, index) => {
+        ctx.fillStyle = index === 0 ? 'green' : 'black'; // Първата част на змията е зелена (главата)
+        ctx.fillRect(segment.x * blockSize, segment.y * blockSize, blockSize, blockSize);
+    });
+
+    // Рисуваме храната
+    ctx.fillStyle = 'red';
+    ctx.fillRect(food.x * blockSize, food.y * blockSize, blockSize, blockSize);
+}
+
+// Управление на посоката със стрелките на клавиатурата
+window.addEventListener('keydown', (e) => {
+    if (gameOver) return;
+
+    if (e.key === 'ArrowUp' && direction !== 'down') direction = 'up';
+    if (e.key === 'ArrowDown' && direction !== 'up') direction = 'down';
+    if (e.key === 'ArrowLeft' && direction !== 'right') direction = 'left';
+    if (e.key === 'ArrowRight' && direction !== 'left') direction = 'right';
 });
 
-function Snake() {
-    this.snakeArray = [{ x: 5, y: 5 }];
-    this.direction = 'right';
+// Главен игрови цикъл
+function gameLoop() {
+    if (gameOver) return;
 
-    this.move = function () {
-        const head = { ...this.snakeArray[0] };
-
-        switch (this.direction) {
-            case 'up':
-                head.y--;
-                break;
-            case 'down':
-                head.y++;
-                break;
-            case 'left':
-                head.x--;
-                break;
-            case 'right':
-                head.x++;
-                break;
-        }
-
-        this.snakeArray.unshift(head);
-        this.snakeArray.pop();
-    };
-
-    this.changeDirection = function (direction) {
-        if (direction === 'Up' && this.direction !== 'down') {
-            this.direction = 'up';
-        } else if (direction === 'Down' && this.direction !== 'up') {
-            this.direction = 'down';
-        } else if (direction === 'Left' && this.direction !== 'right') {
-            this.direction = 'left';
-        } else if (direction === 'Right' && this.direction !== 'left') {
-            this.direction = 'right';
-        }
-    };
-
-    this.eat = function (food) {
-        const head = this.snakeArray[0];
-        if (head.x === food.x && head.y === food.y) {
-            this.snakeArray.push({});
-            return true;
-        }
-        return false;
-    };
-
-    this.draw = function () {
-        for (let i = 0; i < this.snakeArray.length; i++) {
-            ctx.fillStyle = i === 0 ? "green" : "black";
-            ctx.fillRect(this.snakeArray[i].x * scale, this.snakeArray[i].y * scale, scale, scale);
-        }
-    };
-
-    this.checkCollision = function () {
-        const head = this.snakeArray[0];
-        if (head.x < 0 || head.x >= columns || head.y < 0 || head.y >= rows) {
-            return true;
-        }
-
-        for (let i = 1; i < this.snakeArray.length; i++) {
-            if (this.snakeArray[i].x === head.x && this.snakeArray[i].y === head.y) {
-                return true;
-            }
-        }
-
-        return false;
-    };
+    moveSnake();
+    drawGame();
 }
 
-function Food() {
-    this.x = Math.floor(Math.random() * columns);
-    this.y = Math.floor(Math.random() * rows);
-
-    this.draw = function () {
-        ctx.fillStyle = "red";
-        ctx.fillRect(this.x * scale, this.y * scale, scale, scale);
-    };
-}
+// Старт на играта
+setInterval(gameLoop, 100);
